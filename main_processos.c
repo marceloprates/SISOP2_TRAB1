@@ -5,9 +5,11 @@
 #include <sys/wait.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <time.h>
 
 #include "parserArquivo.h"
 
+//essa estrutura nao devera mais ser utilizada
 typedef struct celula_struct
 {
 
@@ -16,16 +18,43 @@ typedef struct celula_struct
 
 } celula;
 
+
+//espaço de memoria compartilhado:
+//matriz entrada 1:
+int ** matriz1;
+int linhas1, colunas1; // tamanho da matriz1
+
+//matriz entrada 2:
+int ** matriz2;
+int linhas2, colunas2;
+
+//matriz Resultado:
+int * matrizR;
+int linhasR, colunasR;
+
+
+//recebe um numero de 0 a numProcessos-1 para determinar qual(is) linha(s) deve processar
+void worker(int numeroDoProcesso)
+{
+  int i,j;
+  
+  //TO-DO
+  //exemplo de como acessar a matriz resultado:
+  matrizR[i*colunasR + j]; 
+  
+}
+
 int main (int argc, char ** argv)
 {
   int numProcessos;
-  int ** matriz1;
-  int linhas1, colunas1;
-  int ** matriz2;
-  int linhas2, colunas2;
-  int ** matriz3;
-  int linhas3, colunas3;
   int i,j;
+  pid_t pid;
+  pid_t * filhos; //array de pids de processos filhos
+  key_t chaveMemComp; //memoria compartilhada
+  int idMemComp; //memoria compartilhada
+  int status;
+  
+  time_t timer;
   
   if (argc != 2)
   {
@@ -41,7 +70,7 @@ int main (int argc, char ** argv)
     exit(2);
   }
   
-  // Lê os arquivos de entrada
+  //---------------le os arquivos de entrada--------------
   if (abreArquivoMatriz("in1.txt", &linhas1, &colunas1, &matriz1) == 0)
   {
     fprintf(stderr,"Erro ao abrir \"in1.txt\", processo abortado.\n\n");
@@ -54,31 +83,109 @@ int main (int argc, char ** argv)
     exit(4);
   }
   
+  //---------- Verifica se o número de linhas é correto
   if (colunas1 != linhas2)
   {
     fprintf(stderr,"Numero de colunas da matriz 1 diferente do numero de linhas da matriz 2, processo abortado.\n\n");
     exit(5);
   }
-
-  matriz3 = (int**)malloc(linhas1*sizeof(int*));
-  for(i = 0; i < linhas1; i++)
+  
+  linhasR = linhas1;
+  colunasR = colunas2;
+  
+  //aloca espaço para a matriz resultado
+  //a matriz resultado deve ser allocada em espaço de memória compartilhado, pois será acessada
+  //por diversos processos.
+  chaveMemComp = ftok("main_processos.c", 'J'); //cria uma chave para a memoria
+  
+  //cria a memoria
+  if ((idMemComp = shmget(chaveMemComp, sizeof(int) * linhasR * colunasR, IPC_CREAT | 0666 )) < 0) 
   {
-    matriz3[i] = (int*)malloc(colunas2*sizeof(int));
+    fprintf(stderr, "Erro ao criar memoria compartilhada.\n");
+    exit(1);
   }
-
-  //MultiplicaMatrizes(matriz1,matriz2,matriz3,linhas1,colunas1,colunas2,numProcessos);
-
+  
+  matrizR = (int *) shmat(idMemComp, NULL, 0);
+  
+  if (matrizR < 0)
+  {
+    fprintf(stderr,"Erro apontando memoria compartilhada.\n");
+    exit(1);
+  }
+  
+  
+  //aloca o vetor que vai ter o numero de todos os processos
+  //--- Professor avisou no email que o numero maximo de processos é o numero de linhas da matriz resultado
+  if (numProcessos > linhasR)
+  {
+    fprintf(stderr,"Numero de processos desejado e maior que o numero de linhas. Usaremos o numero maximo (%d) ao inves.\n", linhasR);
+    numProcessos = linhasR;
+  }
+  
+  filhos = (pid_t *) malloc(sizeof(pid_t) * (numProcessos - 1));
+  if (filhos == NULL)
+  {
+    fprintf(stderr,"Erro de alocacao de memoria.\n");
+    exit(1);
+  }
+  
+  
   printf("Matriz1: \n");
   Imprime(matriz1,linhas1,colunas1);
   
   printf("\nMatriz2: \n");
   Imprime(matriz2,linhas2,colunas2);
-
-  printf("\nMatriz3: \n");
-  Imprime(matriz3,linhas3,colunas3);
-
-  ShmTest();
+  
+  
+  //começando o processamento: armazena o tempo para calcularo tempo gasto
+  fprintf(stderr, "Iniciando o processamento. Aguarde...\n");
+  timer = time(NULL);
+  
+  for (i = 1; i < numProcessos; i++) //abre somente numProcessos -1: o processo pai é o zero
+  {
+    
+    pid = fork();
+    
+    if (pid == 0) //processo filho
+    {
+      //chama a funcao que vai fazer o processamento
+      worker(i);
+      
+      //encerra o processamento
+      exit(1);
+      
+    }
+    
+    filhos[i-1] = pid;
+    
+  }
+  
+  //processo pai tem que trabalhar também:
+  worker(0);
+  
+  //espera todos os filhos terminarem
+  for (i = 0; i < (numProcessos-1); i++);
+    waitpid(filhos[i], &status, 0);
+  
+  
+  printf ("Processamento encerrado. Tempo total gasto: %d.\n\n", time(NULL) - timer );
+  
+  
+  //imprime a matriz resuldato na tela
+  printf("Matriz Resultado: \n");
+  for (i = 0; i < linhasR; i++ )
+  {
+    for (j = 0; j < colunasR; j++)
+	printf("%d ", matrizR[i*colunasR + j]);
+    
+    printf ("\n");
+  }
+  
+  //escreve resultado no arquivo (To-do)
+  
+  
 }
+
 
 int bkpoint(int* i)
 {
