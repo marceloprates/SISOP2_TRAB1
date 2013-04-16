@@ -146,5 +146,4 @@ int abreArquivoMatriz(const char * nomeArquivo, int * numLinhas, int * numColuna
   *pMatriz = matriz;
   
   return 1;
-  
 }

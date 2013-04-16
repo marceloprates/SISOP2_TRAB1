@@ -8,90 +8,41 @@
 #include <time.h>
 
 #include "parserArquivo.h"
-
-//essa estrutura nao devera mais ser utilizada
-typedef struct celula_struct
-{
-
- int i;
- int j; 
-
-} celula;
-
+#include "writerArquivo.h"
 
 //espaço de memoria compartilhado:
-//matriz entrada 1:
-int ** matriz1;
-int linhas1, colunas1; // tamanho da matriz1
 
-//matriz entrada 2:
-int ** matriz2;
-int linhas2, colunas2;
+int ** matriz1;         //matriz entrada 1
+int linhas1, colunas1;  // tamanho da matriz1
 
-//matriz Resultado:
-int * matrizR;
-int linhasR, colunasR;
+int ** matriz2;         //matriz entrada 2
+int linhas2, colunas2;  // tamanho da matriz2
 
+int * matrizR;          //matriz Resultado
+int linhasR, colunasR;  // tamanho da matriz resultado
 
-//recebe um numero de 0 a numProcessos-1 para determinar qual(is) linha(s) deve processar
-void worker(int numeroDoProcesso)
-{
-  int i,j;
-  
-  //TO-DO
-  //exemplo de como acessar a matriz resultado:
-  matrizR[i*colunasR + j]; 
-  
-}
+int numProcessos;
+
+void Imprime(int** mat, int n, int m);
+void ImprimeResultado();
+int  ProdutoEscalar(int* a, int* b, int n);
+void GetLinha(int** mat, int numLinhas, int numColunas, int indiceLinha, int* out);
+void GetColuna(int** mat, int numLinhas, int numColunas, int indiceColuna, int* out);
+void ProcessaEntrada(int argc, char** argv);
+void worker(int indiceProcesso);
+void MultiplicaSequencial();
 
 int main (int argc, char ** argv)
 {
-  int numProcessos;
   int i,j;
   pid_t pid;
   pid_t * filhos; //array de pids de processos filhos
   key_t chaveMemComp; //memoria compartilhada
   int idMemComp; //memoria compartilhada
   int status;
-  
-  time_t timer;
-  
-  if (argc != 2)
-  {
-    fprintf(stderr,"Uso: ./mmprocessos numprocessos\nnumprocessos: numero de processos para executar a multiplicacao.\nExemplo: ./mmprocessos 4\n\n");
-    exit(1);
-  }
-  
-  numProcessos = atoi(argv[1]);
-  
-  if (numProcessos == 0)
-  {
-    fprintf(stderr,"Uso: ./mmprocessos numprocessos\nnumprocessos: numero de processos para executar a multiplicacao.\nExemplo: ./mmprocessos 4\n\n");
-    exit(2);
-  }
-  
-  //---------------le os arquivos de entrada--------------
-  if (abreArquivoMatriz("in1.txt", &linhas1, &colunas1, &matriz1) == 0)
-  {
-    fprintf(stderr,"Erro ao abrir \"in1.txt\", processo abortado.\n\n");
-    exit(3);
-  }
-  
-  if (abreArquivoMatriz("in2.txt", &linhas2, &colunas2, &matriz2) == 0)
-  {
-    fprintf(stderr,"Erro ao abrir \"in2.txt\", processo abortado.\n\n");
-    exit(4);
-  }
-  
-  //---------- Verifica se o número de linhas é correto
-  if (colunas1 != linhas2)
-  {
-    fprintf(stderr,"Numero de colunas da matriz 1 diferente do numero de linhas da matriz 2, processo abortado.\n\n");
-    exit(5);
-  }
-  
-  linhasR = linhas1;
-  colunasR = colunas2;
+  time_t start, end;
+
+  ProcessaEntrada(argc,argv);
   
   //aloca espaço para a matriz resultado
   //a matriz resultado deve ser allocada em espaço de memória compartilhado, pois será acessada
@@ -113,15 +64,6 @@ int main (int argc, char ** argv)
     exit(1);
   }
   
-  
-  //aloca o vetor que vai ter o numero de todos os processos
-  //--- Professor avisou no email que o numero maximo de processos é o numero de linhas da matriz resultado
-  if (numProcessos > linhasR)
-  {
-    fprintf(stderr,"Numero de processos desejado e maior que o numero de linhas. Usaremos o numero maximo (%d) ao inves.\n", linhasR);
-    numProcessos = linhasR;
-  }
-  
   filhos = (pid_t *) malloc(sizeof(pid_t) * (numProcessos - 1));
   if (filhos == NULL)
   {
@@ -129,219 +71,96 @@ int main (int argc, char ** argv)
     exit(1);
   }
   
-  
   printf("Matriz1: \n");
   Imprime(matriz1,linhas1,colunas1);
   
   printf("\nMatriz2: \n");
   Imprime(matriz2,linhas2,colunas2);
   
+  //começando o processamento paralelo: armazena o tempo para calcular o tempo gasto
+  fprintf(stderr, "Iniciando o processamento paralelo. Aguarde...\n");
+  start = time(NULL);
   
-  //começando o processamento: armazena o tempo para calcularo tempo gasto
-  fprintf(stderr, "Iniciando o processamento. Aguarde...\n");
-  timer = time(NULL);
-  
-  for (i = 1; i < numProcessos; i++) //abre somente numProcessos -1: o processo pai é o zero
+  for(i = 0; i < 10; i++) //rodando 10 vezes, como especificado
   {
-    
-    pid = fork();
-    
-    if (pid == 0) //processo filho
+    for (j = 1; j < numProcessos; j++) //abre somente numProcessos -1: o processo pai é o zero
     {
-      //chama a funcao que vai fazer o processamento
-      worker(i);
+      pid = fork();
       
-      //encerra o processamento
-      exit(1);
+      if (pid == 0) //processo filho
+      {
+        worker(j); //chama a funcao que vai fazer o processamento
+        exit(1); //encerra o processamento
+      }
       
+      filhos[j-1] = pid;
     }
     
-    filhos[i-1] = pid;
-    
+    //processo pai tem que trabalhar também:
+    worker(0);
+  
+    //espera todos os filhos terminarem
+    for (j = 0; j < (numProcessos-1); j++);
+      waitpid(filhos[j], &status, 0);
   }
   
-  //processo pai tem que trabalhar também:
-  worker(0);
+  end = time(NULL);
+  fprintf(stderr,"Processamento paralelo encerrado. Tempo total gasto: %f.\n\n", (double)difftime(end,start));
   
-  //espera todos os filhos terminarem
-  for (i = 0; i < (numProcessos-1); i++);
-    waitpid(filhos[i], &status, 0);
+  //imprime a matriz resultado na tela
+  fprintf(stderr,"Matriz Resultado: \n");
+  ImprimeResultado();
+
+  //começando o processamento sequencial: armazena o tempo para calcular o tempo gasto
+  fprintf(stderr, "Iniciando o processamento sequencial. Aguarde...\n");
+  start = time(NULL);
+
+  for(i = 0; i < 10; i++) //rodando 10 vezes, como especificado
+    MultiplicaSequencial();
+
+  end = time(NULL);
+  fprintf(stderr,"Processamento sequencial encerrado. Tempo total gasto: %f.\n\n", (double)difftime(end,start));
+
+  //imprime a matriz resultado na tela
+  fprintf(stderr,"Matriz Resultado: \n");
+  ImprimeResultado();
   
-  
-  printf ("Processamento encerrado. Tempo total gasto: %d.\n\n", time(NULL) - timer );
-  
-  
-  //imprime a matriz resuldato na tela
-  printf("Matriz Resultado: \n");
-  for (i = 0; i < linhasR; i++ )
-  {
-    for (j = 0; j < colunasR; j++)
-	printf("%d ", matrizR[i*colunasR + j]);
-    
-    printf ("\n");
-  }
-  
-  //escreve resultado no arquivo (To-do)
-  
-  
+  //escreve resultado no arquivo
+  escreveArquivoMatriz("out1.txt",matrizR,linhasR,colunasR);
 }
 
-
-int bkpoint(int* i)
-{
-  fprintf(stderr,"BKPOINT %d\n",(*i)++);
-}
-
-int Imprime(int** mat, int n, int m)
+void Imprime(int** mat, int n, int m)
 {
   int i, j;
 
-  for (i = 0; i < n; i++)
-  {
-    for (j = 0; j < m; j++)
-      printf("%d ", mat[i][j]);
-    
-    printf("\n");
-  }
-
-  return 1;
-}
-
-int MultiplicaMatrizes(int** mat1, int** mat2, int** mat3, int n, int m, int p, int numProcessos) // input: mat1: n x m , mat2: m x p ; output: mat3: n x p
-{
-  int* bk; *bk = 1;
-
-  int numCelulas = n*p;
-  celula* celulas = (celula*)malloc(numCelulas*sizeof(celula));
-
-  int i; int j;
-
   for(i = 0; i < n; i++)
   {
-    for(j = 0; j < p; j++)
+    for(j = 0; j < m; j++)
     {
-      celula c; c.i = i; c.j = j;
-      celulas[i*p + j] = c;
-    }
-  }
-
-  // Criação da área de memória compartilhada
-
-  int shmid; size_t shm_size; key_t key; int** shm;
-  shm_size = 1024; key = ftok("somefile",42);
-
-  if ((shmid = shmget(key, shm_size, IPC_CREAT | 0666)) < 0) 
-  {
-    perror("shmget");
-    abort();
-  }
-
-  if ((shm = shmat(shmid, NULL, 0)) == (int**) -1) 
-  {
-    perror("shmat");
-    abort();
-  }
-
-  bkpoint(bk);
-
-  //int** s = shm;
-
-  for(i = 0; i < n; i++)
-  {
-    bkpoint(bk);
-    for(j = 0; j < p; j++)
-    {
-      bkpoint(bk);
-      shm[i][j] = 1;
-    }
-  }
-
-  bkpoint(bk);
-
-  for(i = 0; i < n; i++)
-  {
-    for(j = 0; j < n; j++)
-    {
-      fprintf(stderr,"%d,",shm[i][j]);
+      fprintf(stderr,"%d ", mat[i][j]);
     }
 
     fprintf(stderr,"\n");
   }
 
-  /*
-  // Criação dos processos filho
-  pid_t* pids = (pid_t*)malloc(n*sizeof(pid_t));
+  fprintf(stderr, "\n");
+}
 
-  int indiceProcesso;
+void ImprimeResultado()
+{
+  int i, j;
 
-  for(indiceProcesso = 0; indiceProcesso < numProcessos; indiceProcesso++)
+  for(i = 0; i < linhasR; i++)
   {
-    if((pids[indiceProcesso] = fork()) < 0) // Erro: abortar
+    for(j = 0; j < colunasR; j++)
     {
-      perror("fork");
-      abort();
+      fprintf(stderr,"%d ", matrizR[i*colunasR + j]);
     }
-    else if(pids[indiceProcesso] == 0) // Processo filho rodando
-    {
-      if ((shmid = shmget(key, shm_size, 0666)) < 0) 
-      {
-        perror("shmget");
-        abort();
-      }
-    
-      if ((shm = shmat(shmid, NULL, 0)) == (int**) -1) 
-      {
-        perror("shmat");
-        abort();
-      }
 
-      int indiceCelula;
-
-      for(indiceCelula = 0; indiceCelula < numCelulas; indiceCelula++) // Para todas as céulas
-        if(indiceCelula % numProcessos == indiceProcesso)
-        {
-          // Processa célula
-
-          celula minha_celula = celulas[indiceCelula];
-
-          int* linha = (int*)malloc(m*sizeof(int));
-          int* coluna = (int*)malloc(m*sizeof(int));
-
-          for(i = 0; i < m; i++)
-          {
-            linha[i] = mat1[minha_celula.i][i];
-            coluna[i] = mat2[i][minha_celula.j];
-          }
-
-          shm[minha_celula.i][minha_celula.j] = ProdutoEscalar(linha,coluna,m);
-
-          exit(0);
-        }
-    }
+    fprintf(stderr,"\n");
   }
 
-  // Esperando os processos filho finalizarem
-  int status;
-  pid_t pid;
-
-  while (numProcessos > 0) 
-  {
-    pid = wait(&status);
-
-    printf("Child with PID %ld exited with status 0x%x.\n", (long)pid, status);
-
-    numProcessos--;  // TODO(pts): Remove pid from the pids array.
-  }
-
-  for(i = 0; i < n; i++)
-  {
-    for(j = 0; j < p; j++)
-    {
-      mat3[i][j] = shm[i][j];
-    }
-  }
-  */
-  return 1;
+  fprintf(stderr, "\n");
 }
 
 int ProdutoEscalar(int* a, int* b, int n) // input: a: n, b: n; output: sum[i=0 until n](a[i]*b[i])
@@ -358,140 +177,112 @@ int ProdutoEscalar(int* a, int* b, int n) // input: a: n, b: n; output: sum[i=0 
   return produtoEscalar;
 }
 
-int ForkTest(int n)
+void GetLinha(int** mat, int numLinhas, int numColunas, int indiceLinha, int* out)
 {
-  pid_t* pids = (pid_t*)malloc(n*sizeof(pid_t));
-
   int i;
-  
-  /* Start children. */
-  for (i = 0; i < n; ++i) 
+
+  for(i = 0; i < numColunas; i++)
   {
-    if ((pids[i] = fork()) < 0) 
-    {
-      perror("fork");
-
-      abort();
-    } 
-    else if (pids[i] == 0) 
-    {
-      fprintf(stderr,"Child %d says hi!\n",i);
-
-      exit(0);
-    }
+    out[i] = mat[indiceLinha][i];
   }
-  
-  /* Wait for children to exit. */
-  int status;
-  pid_t pid;
-
-  while (n > 0) 
-  {
-    pid = wait(&status);
-
-    printf("Child with PID %ld exited with status 0x%x.\n", (long)pid, status);
-
-    --n;  // TODO(pts): Remove pid from the pids array.
-  }
-
-  return 1;
 }
 
-int ShmTest()
+void GetColuna(int** mat, int numLinhas, int numColunas, int indiceColuna, int* out)
 {
-    char c;
-    int shmid;
-    key_t key;
-    char *shm, *s;
-    int SHMSZ = 27;
+  int i;
 
-    /*
-     * We'll name our shared memory segment
-     * "5678".
-     */
-    key = 5678;
+  for(i = 0; i < numLinhas; i++)
+  {
+    out[i] = mat[i][indiceColuna];
+  }
+}
 
-    /*
-     * Create the segment.
-     */
-    if ((shmid = shmget(key, SHMSZ, IPC_CREAT | 0666)) < 0) {
-        perror("shmget");
-        exit(1);
-    }
+void ProcessaEntrada(int argc, char** argv)
+{
+  if (argc != 2)
+  {
+    fprintf(stderr,"Uso: ./mmprocessos numprocessos\nnumprocessos: numero de processos para executar a multiplicacao.\nExemplo: ./mmprocessos 4\n\n");
+    exit(1);
+  }
+  
+  numProcessos = atoi(argv[1]);
+  
+  if (numProcessos == 0)
+  {
+    fprintf(stderr,"Uso: ./mmprocessos numprocessos\nnumprocessos: numero de processos para executar a multiplicacao.\nExemplo: ./mmprocessos 4\n\n");
+    exit(1);
+  }
+  
+  //---------------le os arquivos de entrada--------------
+  if (abreArquivoMatriz("in1.txt", &linhas1, &colunas1, &matriz1) == 0)
+  {
+    fprintf(stderr,"Erro ao abrir \"in1.txt\", processo abortado.\n\n");
+    exit(1);
+  }
+  
+  if (abreArquivoMatriz("in2.txt", &linhas2, &colunas2, &matriz2) == 0)
+  {
+    fprintf(stderr,"Erro ao abrir \"in2.txt\", processo abortado.\n\n");
+    exit(1);
+  }
+  
+  //---------- Verifica se o número de linhas e colunas é compatível
+  if (colunas1 != linhas2)
+  {
+    fprintf(stderr,"Numero de colunas da matriz 1 diferente do numero de linhas da matriz 2, processo abortado.\n\n");
+    exit(1);
+  }
 
-    /*
-     * Now we attach the segment to our data space.
-     */
-    if ((shm = shmat(shmid, NULL, 0)) == (char *) -1) {
-        perror("shmat");
-        exit(1);
-    }
+  linhasR = linhas1;
+  colunasR = colunas2;
 
-    if(fork() != 0) // father
+  //aloca o vetor que vai ter o numero de todos os processos
+  //--- Professor avisou no email que o numero maximo de processos é o numero de linhas da matriz resultado
+  if (numProcessos > linhasR)
+  {
+    fprintf(stderr,"Numero de processos desejado eh maior que o numero de linhas. Usaremos o numero maximo (%d) ao inves.\n", linhasR);
+    numProcessos = linhasR;
+  }
+}
+
+void worker(int indiceProcesso) //recebe um numero de 0 a numProcessos-1 para determinar qual(is) linha(s) deve processar
+{
+  int i,j;
+
+  for(i = 0; i < linhas1; i++)
+  {
+    if(i % numProcessos == indiceProcesso)
     {
-        /*
-       * Now put some things into the memory for the
-       * other process to read.
-       */
-      s = shm;
-  
-      for (c = 'a'; c <= 'z'; c++)
-          *s++ = c;
-      *s = NULL;
-  
-      /*
-       * Finally, we wait until the other process 
-       * changes the first character of our memory
-       * to '*', indicating that it has read what 
-       * we put there.
-       */
-      while (*shm != '*')
-          sleep(1);
-  
-      exit(0);
+      int* linha = (int*)malloc(colunas1*sizeof(int));
+      GetLinha(matriz1,linhas1,colunas1,i,linha);
+
+      for(j = 0; j < colunas2; j++)
+      {
+        int* coluna = (int*)malloc(linhas2*sizeof(int));
+        GetColuna(matriz2,linhas2,colunas2,j,coluna);
+
+        matrizR[i*colunasR + j] = ProdutoEscalar(linha,coluna,colunas1);
+      }
     }
-    else // child
+  }
+  
+  //TO-DO
+  //exemplo de como acessar a matriz resultado:
+  matrizR[i*colunasR + j]; 
+}
+
+void MultiplicaSequencial()
+{
+  int i, j;
+
+  for(i = 0; i < linhas1; i++)
+  {
+    for(j = 0; j < colunas2; j++)
     {
-      int shmid;
-      key_t key;
-      char *shm, *s;
-  
-      /*
-       * We need to get the segment named
-       * "5678", created by the server.
-       */
-      key = 5678;
-  
-      /*
-       * Locate the segment.
-       */
-      if ((shmid = shmget(key, SHMSZ, 0666)) < 0) {
-          perror("shmget");
-          exit(1);
-      }
-  
-      /*
-       * Now we attach the segment to our data space.
-       */
-      if ((shm = shmat(shmid, NULL, 0)) == (char *) -1) {
-          perror("shmat");
-          exit(1);
-      }
-  
-      /*
-       * Now read what the server put in the memory.
-       */
-      for (s = shm; *s != NULL; s++)
-          putchar(*s);
-      putchar('\n');
-  
-      /*
-       * Finally, change the first character of the 
-       * segment to '*', indicating we have read 
-       * the segment.
-       */
-      *shm = '*';
-  
-      exit(0);
+      int* linha = (int*)malloc(colunas1*sizeof(int)); GetLinha(matriz1,linhas1,colunas1,i,linha);
+      int* coluna = (int*)malloc(linhas2*sizeof(int)); GetColuna(matriz2,linhas2,colunas2,j,coluna);
+
+      matrizR[i*colunasR + j] = ProdutoEscalar(linha,coluna,colunas1);
     }
+  }
 }
