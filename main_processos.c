@@ -71,12 +71,6 @@ int main (int argc, char ** argv)
     exit(1);
   }
   
-  printf("Matriz1: \n");
-  Imprime(matriz1,linhas1,colunas1);
-  
-  printf("\nMatriz2: \n");
-  Imprime(matriz2,linhas2,colunas2);
-  
   //começando o processamento paralelo: armazena o tempo para calcular o tempo gasto
   fprintf(stderr, "Iniciando o processamento paralelo. Aguarde...\n");
   start = time(NULL);
@@ -106,10 +100,6 @@ int main (int argc, char ** argv)
   
   end = time(NULL);
   fprintf(stderr,"Processamento paralelo encerrado. Tempo total gasto: %f.\n\n", (double)difftime(end,start));
-  
-  //imprime a matriz resultado na tela
-  fprintf(stderr,"Matriz Resultado: \n");
-  ImprimeResultado();
 
   //começando o processamento sequencial: armazena o tempo para calcular o tempo gasto
   fprintf(stderr, "Iniciando o processamento sequencial. Aguarde...\n");
@@ -120,6 +110,12 @@ int main (int argc, char ** argv)
 
   end = time(NULL);
   fprintf(stderr,"Processamento sequencial encerrado. Tempo total gasto: %f.\n\n", (double)difftime(end,start));
+
+  fprintf(stderr,"Matriz1: \n");
+  Imprime(matriz1,linhas1,colunas1);
+  
+  fprintf(stderr,"\nMatriz2: \n");
+  Imprime(matriz2,linhas2,colunas2);
 
   //imprime a matriz resultado na tela
   fprintf(stderr,"Matriz Resultado: \n");
@@ -236,7 +232,6 @@ void ProcessaEntrada(int argc, char** argv)
   linhasR = linhas1;
   colunasR = colunas2;
 
-  //aloca o vetor que vai ter o numero de todos os processos
   //--- Professor avisou no email que o numero maximo de processos é o numero de linhas da matriz resultado
   if (numProcessos > linhasR)
   {
