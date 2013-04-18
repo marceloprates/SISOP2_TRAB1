@@ -100,7 +100,7 @@ int main (int argc, char ** argv)
   }
   
   end = getTickCount();
-  fprintf(stderr,"Processamento paralelo encerrado. Tempo total gasto: %ud ms.\n\n", (end - start);
+  fprintf(stderr,"Processamento paralelo encerrado. Tempo total gasto: %u ms.\n\n", (end - start));
 
   //começando o processamento sequencial: armazena o tempo para calcular o tempo gasto
   fprintf(stderr, "Iniciando o processamento sequencial. Aguarde...\n");
@@ -110,7 +110,7 @@ int main (int argc, char ** argv)
     MultiplicaSequencial();
 
   end = getTickCount();
-  fprintf(stderr,"Processamento sequencial encerrado. Tempo total gasto: %ud ms.\n\n", (end - start));
+  fprintf(stderr,"Processamento sequencial encerrado. Tempo total gasto: %u ms.\n\n", (end - start));
 
   fprintf(stderr,"Matriz1: \n");
   Imprime(matriz1,linhas1,colunas1);
