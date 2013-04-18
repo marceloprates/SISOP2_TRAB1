@@ -24,7 +24,6 @@ int linhasR, colunasR;  // tamanho da matriz resultado
 
 int numThreads;
 
-void* hello(void* arg);
 void* worker(void* args);
 void Imprime(int** mat, int n, int m);
 int  ProdutoEscalar(int* a, int* b, int n);
@@ -32,6 +31,7 @@ void GetLinha(int** mat, int numLinhas, int numColunas, int indiceLinha, int* ou
 void GetColuna(int** mat, int numLinhas, int numColunas, int indiceColuna, int* out);
 void ProcessaEntrada(int argc, char** argv);
 void MultiplicaSequencial();
+unsigned int getTickCount();
 
 int main(int argc, char** argv)
 {
@@ -39,7 +39,7 @@ int main(int argc, char** argv)
 	pthread_t* threads;
 	pthread_attr_t pthread_custom_attr;
 	parm* p;
-	time_t start, end;
+	unsigned int start, end;
 
 	ProcessaEntrada(argc,argv);
 
@@ -48,7 +48,7 @@ int main(int argc, char** argv)
 
 	//começando o processamento paralelo: armazena o tempo para calcular o tempo gasto
 	fprintf(stderr,"Iniciando o processamento paralelo. Aguarde...\n");
-	start = time(NULL);
+	start = getTickCount();
 
 	for(i = 0; i < 10; i++) //rodando 10 vezes, como especificado
 	{
@@ -69,19 +69,18 @@ int main(int argc, char** argv)
 		free(p);
 	}
 
-	end = time(NULL);
-
-	fprintf(stderr,"Processamento paralelo encerrado. Tempo total gasto: %f.\n\n",(double)difftime(end,start));
+	end = getTickCount();
+	fprintf(stderr,"Processamento paralelo encerrado. Tempo total gasto: %u ms.\n\n",(end-start));
 
 	//começando o processamento sequencial: armazena o tempo para calcular o tempo gasto
 	fprintf(stderr,"Iniciando o processamento sequencial. Aguarde...\n");
-	start = time(NULL);
+	start = getTickCount();
 
 	for(i = 0; i < 10; i++)
 		MultiplicaSequencial();
 
-	end = time(NULL);
-	fprintf(stderr,"Processamento sequencial encerrado. Tempo total gasto: %f.\n\n",(double)difftime(end,start));
+	end = getTickCount();
+	fprintf(stderr,"Processamento sequencial encerrado. Tempo total gasto: %u ms.\n\n",(end-start));
 
 	fprintf(stderr,"Matriz1: \n");
   	Imprime(matriz1,linhas1,colunas1);
@@ -98,11 +97,12 @@ int main(int argc, char** argv)
 	return 1;
 }
 
-void* hello(void *arg)
+//função retorna a hora do dia em millisegundos
+unsigned int getTickCount()
 {
-	parm *p=(parm *)arg;
-	fprintf(stderr,"Hello from node %d\n", p->id);
-	return (NULL);
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
 }
 
 void* worker(void *args)
