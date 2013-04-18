@@ -5,7 +5,7 @@
 #include <sys/wait.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include <time.h>
+#include <sys/time.h>
 
 #include "parserArquivo.h"
 #include "writerArquivo.h"
@@ -31,6 +31,7 @@ void GetColuna(int** mat, int numLinhas, int numColunas, int indiceColuna, int* 
 void ProcessaEntrada(int argc, char** argv);
 void worker(int indiceProcesso);
 void MultiplicaSequencial();
+unsigned int getTickCount();
 
 int main (int argc, char ** argv)
 {
@@ -40,7 +41,7 @@ int main (int argc, char ** argv)
   key_t chaveMemComp; //memoria compartilhada
   int idMemComp; //memoria compartilhada
   int status;
-  time_t start, end;
+  unsigned int start, end;
 
   ProcessaEntrada(argc,argv);
   
@@ -73,7 +74,7 @@ int main (int argc, char ** argv)
   
   //começando o processamento paralelo: armazena o tempo para calcular o tempo gasto
   fprintf(stderr, "Iniciando o processamento paralelo. Aguarde...\n");
-  start = time(NULL);
+  start = getTickCount();
   
   for(i = 0; i < 10; i++) //rodando 10 vezes, como especificado
   {
@@ -98,18 +99,18 @@ int main (int argc, char ** argv)
       waitpid(filhos[j], &status, 0);
   }
   
-  end = time(NULL);
-  fprintf(stderr,"Processamento paralelo encerrado. Tempo total gasto: %f.\n\n", (double)difftime(end,start));
+  end = getTickCount();
+  fprintf(stderr,"Processamento paralelo encerrado. Tempo total gasto: %ud ms.\n\n", (end - start);
 
   //começando o processamento sequencial: armazena o tempo para calcular o tempo gasto
   fprintf(stderr, "Iniciando o processamento sequencial. Aguarde...\n");
-  start = time(NULL);
+  start = getTickCount();
 
   for(i = 0; i < 10; i++) //rodando 10 vezes, como especificado
     MultiplicaSequencial();
 
-  end = time(NULL);
-  fprintf(stderr,"Processamento sequencial encerrado. Tempo total gasto: %f.\n\n", (double)difftime(end,start));
+  end = getTickCount();
+  fprintf(stderr,"Processamento sequencial encerrado. Tempo total gasto: %ud ms.\n\n", (end - start));
 
   fprintf(stderr,"Matriz1: \n");
   Imprime(matriz1,linhas1,colunas1);
@@ -123,6 +124,14 @@ int main (int argc, char ** argv)
   
   //escreve resultado no arquivo
   escreveArquivoMatriz("out1.txt",matrizR,linhasR,colunasR);
+}
+
+//função retorna a hora do dia em millisegundos
+unsigned int getTickCount()
+{
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
 }
 
 void Imprime(int** mat, int n, int m)
