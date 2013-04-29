@@ -10,6 +10,8 @@
 #include "parserArquivo.h"
 #include "writerArquivo.h"
 
+#define SHMSZ 36
+
 //espaço de memoria compartilhado:
 
 int ** matriz1;         //matriz entrada 1
@@ -51,7 +53,7 @@ int main (int argc, char ** argv)
   chaveMemComp = ftok("main_processos.c", 'J'); //cria uma chave para a memoria
   
   //cria a memoria
-  if ((idMemComp = shmget(chaveMemComp, sizeof(int) * linhasR * colunasR, IPC_CREAT | 0666 )) < 0) 
+  if ((idMemComp = shmget(chaveMemComp, SHMSZ/*sizeof(int) * linhasR * colunasR*/, IPC_CREAT | 0666 )) < 0) 
   {
     fprintf(stderr, "Erro ao criar memoria compartilhada.\n");
     exit(1);
@@ -124,6 +126,7 @@ int main (int argc, char ** argv)
   
   //escreve resultado no arquivo
   escreveArquivoMatriz("out1.txt",matrizR,linhasR,colunasR);
+  
 }
 
 //função retorna a hora do dia em millisegundos
@@ -253,26 +256,17 @@ void worker(int indiceProcesso) //recebe um numero de 0 a numProcessos-1 para de
 {
   int i,j;
 
-  for(i = 0; i < linhas1; i++)
+  for(i = indiceProcesso; i < linhas1; i = i += numProcessos)
   {
-    if(i % numProcessos == indiceProcesso)
+    int* linha = (int*)malloc(colunas1*sizeof(int));
+    GetLinha(matriz1,linhas1,colunas1,i,linha);
+    for(j = 0; j < colunas2; j++)
     {
-      int* linha = (int*)malloc(colunas1*sizeof(int));
-      GetLinha(matriz1,linhas1,colunas1,i,linha);
-
-      for(j = 0; j < colunas2; j++)
-      {
-        int* coluna = (int*)malloc(linhas2*sizeof(int));
-        GetColuna(matriz2,linhas2,colunas2,j,coluna);
-
-        matrizR[i*colunasR + j] = ProdutoEscalar(linha,coluna,colunas1);
-      }
+      int* coluna = (int*)malloc(linhas2*sizeof(int));
+      GetColuna(matriz2,linhas2,colunas2,j,coluna);
+      matrizR[i*colunasR + j] = ProdutoEscalar(linha,coluna,colunas1);
     }
   }
-  
-  //TO-DO
-  //exemplo de como acessar a matriz resultado:
-  matrizR[i*colunasR + j]; 
 }
 
 void MultiplicaSequencial()
