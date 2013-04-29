@@ -50,10 +50,10 @@ int main(int argc, char** argv)
 	fprintf(stderr,"Iniciando o processamento paralelo. Aguarde...\n");
 	start = getTickCount();
 
+  p = (parm*)malloc(numThreads*sizeof(parm));
+
 	for(i = 0; i < 10; i++) //rodando 10 vezes, como especificado
-	{
-		p = (parm*)malloc(numThreads*sizeof(parm));
-		
+	{		
 		for(j = 0; j < numThreads; j++)
 		{
 			p[j].id = j;
@@ -65,34 +65,38 @@ int main(int argc, char** argv)
 		{
 			pthread_join(threads[j],NULL);
 		}
-	
-		free(p);
 	}
 
+  free(p);
+
 	end = getTickCount();
-	fprintf(stderr,"Processamento paralelo encerrado. Tempo total gasto: %u ms.\n\n",(end-start));
+	fprintf(stderr,"Processamento paralelo encerrado. Tempo médio gasto: %f ms.\n\n",((double)(end-start))/10);
 
 	//começando o processamento sequencial: armazena o tempo para calcular o tempo gasto
 	fprintf(stderr,"Iniciando o processamento sequencial. Aguarde...\n");
 	start = getTickCount();
 
 	for(i = 0; i < 10; i++)
+  {
 		MultiplicaSequencial();
+  }
 
 	end = getTickCount();
-	fprintf(stderr,"Processamento sequencial encerrado. Tempo total gasto: %u ms.\n\n",(end-start));
+	fprintf(stderr,"Processamento sequencial encerrado. Tempo médio gasto: %f ms.\n\n",((double)(end-start))/10);
 
+  /*
 	fprintf(stderr,"Matriz1: \n");
-  	Imprime(matriz1,linhas1,colunas1);
+  Imprime(matriz1,linhas1,colunas1);
   
-  	fprintf(stderr,"\nMatriz2: \n");
-  	Imprime(matriz2,linhas2,colunas2);
+  fprintf(stderr,"\nMatriz2: \n");
+  Imprime(matriz2,linhas2,colunas2);
 	
 	fprintf(stderr,"\nMatriz Resultado: \n");
 	Imprime(matrizR,linhasR,colunasR);
+  */
 
-	//escreve resultado no arquivo
-  	escreveArquivoMatriz("out1.txt",matrizR,linhasR,colunasR);
+	//escreve matriz resultado no arquivo
+  escreveArquivoMatriz("out1.txt",matrizR,linhasR,colunasR);
 
 	return 1;
 }
@@ -110,28 +114,17 @@ void* worker(void *args)
 	int i,j;
 	parm *p=(parm *)args; int indiceThread = p->id;
 
-	//fprintf(stderr,"Hello from thread %d\n",indiceThread);
-
-  	for(i = 0; i < linhas1; i++)
-  	{
-  	  if(i % numThreads == indiceThread)
-  	  {
-  	  	//fprintf(stderr,"Thread %d will process line %d\n",indiceThread,i);
-
-  	    int* linha = (int*)malloc(colunas1*sizeof(int));
-  	    GetLinha(matriz1,linhas1,colunas1,i,linha);
-	
-  	    for(j = 0; j < colunas2; j++)
-  	    {
-  	      int* coluna = (int*)malloc(linhas2*sizeof(int));
-  	      GetColuna(matriz2,linhas2,colunas2,j,coluna);
-	
-  	      matrizR[i][j] = ProdutoEscalar(linha,coluna,colunas1);
-  	    }
-  	  }
-  	}
-
-  	//fprintf(stderr,"Thread %d exited\n",indiceThread);
+  for(i = indiceThread; i < linhas1; i += numThreads)
+  {
+     int* linha = (int*)malloc(colunas1*sizeof(int));
+     GetLinha(matriz1,linhas1,colunas1,i,linha);
+     for(j = 0; j < colunas2; j++)
+     {
+       int* coluna = (int*)malloc(linhas2*sizeof(int));
+       GetColuna(matriz2,linhas2,colunas2,j,coluna);
+       matrizR[i][j] = ProdutoEscalar(linha,coluna,colunas1);
+     }
+  }
 
 	return (NULL);
 }
