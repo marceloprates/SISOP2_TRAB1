@@ -43,14 +43,14 @@ int main(int argc, char** argv)
 
 	ProcessaEntrada(argc,argv);
 
+	//começando o processamento paralelo: armazena o tempo para calcular o tempo gasto
+	fprintf(stderr,"Iniciando o processamento paralelo. Aguarde...\n");	
+	start = getTickCount();
+	
 	threads = (pthread_t*)malloc(numThreads*sizeof(*threads));
 	pthread_attr_init(&pthread_custom_attr);
 
-	//começando o processamento paralelo: armazena o tempo para calcular o tempo gasto
-	fprintf(stderr,"Iniciando o processamento paralelo. Aguarde...\n");
-	start = getTickCount();
-
-  p = (parm*)malloc(numThreads*sizeof(parm));
+  	p = (parm*)malloc(numThreads*sizeof(parm));
 
 	for(i = 0; i < 10; i++) //rodando 10 vezes, como especificado
 	{		
@@ -67,7 +67,7 @@ int main(int argc, char** argv)
 		}
 	}
 
-  free(p);
+  	free(p);
 
 	end = getTickCount();
 	fprintf(stderr,"Processamento paralelo encerrado. Tempo médio gasto: %f ms.\n\n",((double)(end-start))/10);
@@ -75,12 +75,29 @@ int main(int argc, char** argv)
 	//começando o processamento sequencial: armazena o tempo para calcular o tempo gasto
 	fprintf(stderr,"Iniciando o processamento sequencial. Aguarde...\n");
 	start = getTickCount();
+	
+	threads = (pthread_t*)malloc(numThreads*sizeof(*threads));
+	pthread_attr_init(&pthread_custom_attr);
+ 
+ 	p = (parm*)malloc(numThreads*sizeof(parm));
 
-	for(i = 0; i < 10; i++)
-  {
-		MultiplicaSequencial();
-  }
+	for(i = 0; i < 10; i++) //rodando 10 vezes, como especificado
+	{		
+		for(j = 0; j < 1; j++)
+		{
+			p[j].id = j;
+	
+			pthread_create(&threads[j],&pthread_custom_attr,worker,(void*)&p[j]);
+		}
+	
+		for(j = 0; j < numThreads; j++) // espera todas as threads terminarem
+		{
+			pthread_join(threads[j],NULL);
+		}
+	}
 
+  	free(p);
+  	
 	end = getTickCount();
 	fprintf(stderr,"Processamento sequencial encerrado. Tempo médio gasto: %f ms.\n\n",((double)(end-start))/10);
 
@@ -233,21 +250,5 @@ void ProcessaEntrada(int argc, char** argv)
   {
     fprintf(stderr,"Numero de threads desejado eh maior que o numero de linhas. Usaremos o numero maximo (%d) ao inves.\n", linhasR);
     numThreads = linhasR;
-  }
-}
-
-void MultiplicaSequencial()
-{
-  int i, j;
-
-  for(i = 0; i < linhas1; i++)
-  {
-    for(j = 0; j < colunas2; j++)
-    {
-      int* linha = (int*)malloc(colunas1*sizeof(int)); GetLinha(matriz1,linhas1,colunas1,i,linha);
-      int* coluna = (int*)malloc(linhas2*sizeof(int)); GetColuna(matriz2,linhas2,colunas2,j,coluna);
-
-      matrizR[i][j] = ProdutoEscalar(linha,coluna,colunas1);
-    }
   }
 }
