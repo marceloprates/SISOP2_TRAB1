@@ -107,9 +107,26 @@ int main (int argc, char ** argv)
   //começando o processamento sequencial: armazena o tempo para calcular o tempo gasto
   fprintf(stderr, "Iniciando o processamento sequencial. Aguarde...\n");
   start = getTickCount();
-
-  for(i = 0; i < 10; i++) //rodando 10 vezes, como especificado
-    MultiplicaSequencial();
+  
+  for (j = 1; j < 1; j++)
+    {
+      pid = fork();
+      
+      if (pid == 0) //processo filho
+      {
+        worker(j); //chama a funcao que vai fazer o processamento
+        exit(1); //encerra o processamento
+      }
+      
+      filhos[j-1] = pid;
+    }
+    
+    //processo pai tem que trabalhar também:
+    worker(0);
+  
+    //espera todos os filhos terminarem
+    for (j = 0; j < (numProcessos-1); j++);
+      waitpid(filhos[j], &status, 0);
 
   end = getTickCount();
   fprintf(stderr,"Processamento sequencial encerrado. Tempo total gasto: %u ms.\n\n", (end - start));
@@ -264,22 +281,6 @@ void worker(int indiceProcesso) //recebe um numero de 0 a numProcessos-1 para de
     {
       int* coluna = (int*)malloc(linhas2*sizeof(int));
       GetColuna(matriz2,linhas2,colunas2,j,coluna);
-      matrizR[i*colunasR + j] = ProdutoEscalar(linha,coluna,colunas1);
-    }
-  }
-}
-
-void MultiplicaSequencial()
-{
-  int i, j;
-
-  for(i = 0; i < linhas1; i++)
-  {
-    for(j = 0; j < colunas2; j++)
-    {
-      int* linha = (int*)malloc(colunas1*sizeof(int)); GetLinha(matriz1,linhas1,colunas1,i,linha);
-      int* coluna = (int*)malloc(linhas2*sizeof(int)); GetColuna(matriz2,linhas2,colunas2,j,coluna);
-
       matrizR[i*colunasR + j] = ProdutoEscalar(linha,coluna,colunas1);
     }
   }
