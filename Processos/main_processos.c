@@ -85,6 +85,7 @@ int main (int argc, char ** argv)
   }
   
   end = getTickCount();
+  
   fprintf(stderr,"Processamento encerrado. Tempo total gasto: %u ms.\n\n", (end - start));
 
   //escreve resultado no arquivo
