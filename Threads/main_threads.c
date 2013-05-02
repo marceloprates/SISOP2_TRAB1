@@ -7,6 +7,8 @@
 #include "parserArquivo.h"
 #include "writerArquivo.h"
 
+#define tamanhoAmostra 100
+
 typedef struct {
 	int id;
 } parm;
@@ -24,13 +26,12 @@ int linhasR, colunasR;  // tamanho da matriz resultado
 
 int numThreads;
 
-void* worker(void* args);
 void Imprime(int** mat, int n, int m);
 int  ProdutoEscalar(int* a, int* b, int n);
 void GetLinha(int** mat, int numLinhas, int numColunas, int indiceLinha, int* out);
 void GetColuna(int** mat, int numLinhas, int numColunas, int indiceColuna, int* out);
 void ProcessaEntrada(int argc, char** argv);
-void MultiplicaSequencial();
+void* worker(void* args);
 unsigned int getTickCount();
 
 int main(int argc, char** argv)
@@ -44,15 +45,15 @@ int main(int argc, char** argv)
 	ProcessaEntrada(argc,argv);
 
 	//começando o processamento paralelo: armazena o tempo para calcular o tempo gasto
-	fprintf(stderr,"Iniciando o processamento paralelo. Aguarde...\n");	
+	fprintf(stderr,"Iniciando o processamento. Aguarde...\n");	
 	start = getTickCount();
 	
 	threads = (pthread_t*)malloc(numThreads*sizeof(*threads));
 	pthread_attr_init(&pthread_custom_attr);
 
-  	p = (parm*)malloc(numThreads*sizeof(parm));
+  p = (parm*)malloc(numThreads*sizeof(parm));
 
-	for(i = 0; i < 10; i++) //rodando 10 vezes, como especificado
+	for(i = 0; i < tamanhoAmostra; i++) //cálculo da média
 	{		
 		for(j = 0; j < numThreads; j++)
 		{
@@ -70,80 +71,12 @@ int main(int argc, char** argv)
   	free(p);
 
 	end = getTickCount();
-	fprintf(stderr,"Processamento paralelo encerrado. Tempo médio gasto: %f ms.\n\n",((double)(end-start))/10);
-
-	//começando o processamento sequencial: armazena o tempo para calcular o tempo gasto
-	fprintf(stderr,"Iniciando o processamento sequencial. Aguarde...\n");
-	start = getTickCount();
-	
-	threads = (pthread_t*)malloc(numThreads*sizeof(*threads));
-	pthread_attr_init(&pthread_custom_attr);
- 
- 	p = (parm*)malloc(numThreads*sizeof(parm));
-
-	for(i = 0; i < 10; i++) //rodando 10 vezes, como especificado
-	{		
-		for(j = 0; j < 1; j++)
-		{
-			p[j].id = j;
-	
-			pthread_create(&threads[j],&pthread_custom_attr,worker,(void*)&p[j]);
-		}
-	
-		for(j = 0; j < numThreads; j++) // espera todas as threads terminarem
-		{
-			pthread_join(threads[j],NULL);
-		}
-	}
-
-  	free(p);
-  	
-	end = getTickCount();
-	fprintf(stderr,"Processamento sequencial encerrado. Tempo médio gasto: %f ms.\n\n",((double)(end-start))/10);
-
-  /*
-	fprintf(stderr,"Matriz1: \n");
-  Imprime(matriz1,linhas1,colunas1);
-  
-  fprintf(stderr,"\nMatriz2: \n");
-  Imprime(matriz2,linhas2,colunas2);
-	
-	fprintf(stderr,"\nMatriz Resultado: \n");
-	Imprime(matrizR,linhasR,colunasR);
-  */
+	fprintf(stderr,"Processamento encerrado. Tempo médio gasto: %f ms.\n\n",((double)(end-start))/tamanhoAmostra);
 
 	//escreve matriz resultado no arquivo
   escreveArquivoMatriz("out1.txt",matrizR,linhasR,colunasR);
 
 	return 1;
-}
-
-//função retorna a hora do dia em millisegundos
-unsigned int getTickCount()
-{
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
-}
-
-void* worker(void *args)
-{
-	int i,j;
-	parm *p=(parm *)args; int indiceThread = p->id;
-
-  for(i = indiceThread; i < linhas1; i += numThreads)
-  {
-     int* linha = (int*)malloc(colunas1*sizeof(int));
-     GetLinha(matriz1,linhas1,colunas1,i,linha);
-     for(j = 0; j < colunas2; j++)
-     {
-       int* coluna = (int*)malloc(linhas2*sizeof(int));
-       GetColuna(matriz2,linhas2,colunas2,j,coluna);
-       matrizR[i][j] = ProdutoEscalar(linha,coluna,colunas1);
-     }
-  }
-
-	return (NULL);
 }
 
 void Imprime(int** mat, int n, int m)
@@ -251,4 +184,31 @@ void ProcessaEntrada(int argc, char** argv)
     fprintf(stderr,"Numero de threads desejado eh maior que o numero de linhas. Usaremos o numero maximo (%d) ao inves.\n", linhasR);
     numThreads = linhasR;
   }
+}
+
+void* worker(void *args)
+{
+  int i,j;
+  parm *p=(parm *)args; int indiceThread = p->id;
+
+  for(i = indiceThread; i < linhas1; i += numThreads)
+  {
+     int* linha = (int*)malloc(colunas1*sizeof(int));
+     GetLinha(matriz1,linhas1,colunas1,i,linha);
+     for(j = 0; j < colunas2; j++)
+     {
+       int* coluna = (int*)malloc(linhas2*sizeof(int));
+       GetColuna(matriz2,linhas2,colunas2,j,coluna);
+       matrizR[i][j] = ProdutoEscalar(linha,coluna,colunas1);
+     }
+  }
+
+  return (NULL);
+}
+
+unsigned int getTickCount() //função retorna a hora do dia em millisegundos
+{
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
 }

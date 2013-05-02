@@ -11,6 +11,8 @@
 #include "parserArquivo.h"
 #include "writerArquivo.h"
 
+#define tamanhoAmostra 100
+
 //espaço de memoria compartilhado:
 
 int ** matriz1;         //matriz entrada 1
@@ -31,7 +33,6 @@ void GetLinha(int** mat, int numLinhas, int numColunas, int indiceLinha, int* ou
 void GetColuna(int** mat, int numLinhas, int numColunas, int indiceColuna, int* out);
 void ProcessaEntrada(int argc, char** argv);
 void worker(int indiceProcesso);
-void MultiplicaSequencial();
 unsigned int getTickCount();
 
 int main (int argc, char ** argv)
@@ -61,7 +62,7 @@ int main (int argc, char ** argv)
   fprintf(stderr, "Iniciando o processamento. Aguarde...\n");
   start = getTickCount();
   
-  for(i = 0; i < 10; i++) //rodando 10 vezes, como especificado
+  for(i = 0; i < tamanhoAmostra; i++) //cálculo da média
   {
     for (j = 1; j < numProcessos; j++) //abre somente numProcessos -1: o processo pai é o zero
     {
@@ -86,18 +87,10 @@ int main (int argc, char ** argv)
   
   end = getTickCount();
   
-  fprintf(stderr,"Processamento encerrado. Tempo total gasto: %u ms.\n\n", (end - start));
+  fprintf(stderr,"Processamento encerrado. Tempo total gasto: %u ms.\n\n", ((double)(end - start))/tamanhoAmostra);
 
   //escreve resultado no arquivo
   escreveArquivoMatriz("out1.txt",matrizR,linhasR,colunasR);  
-}
-
-//função retorna a hora do dia em millisegundos
-unsigned int getTickCount()
-{
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
 }
 
 void Imprime(int** mat, int n, int m)
@@ -230,4 +223,11 @@ void worker(int indiceProcesso) //recebe um numero de 0 a numProcessos-1 para de
       matrizR[i*colunasR + j] = ProdutoEscalar(linha,coluna,colunas1);
     }
   }
+}
+
+unsigned int getTickCount() //função retorna a hora do dia em millisegundos
+{
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
 }
