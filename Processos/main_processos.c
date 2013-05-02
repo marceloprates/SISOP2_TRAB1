@@ -3,14 +3,13 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/time.h>
 
 #include "parserArquivo.h"
 #include "writerArquivo.h"
-
-#define SHMSZ 36
 
 //espaço de memoria compartilhado:
 
@@ -40,8 +39,6 @@ int main (int argc, char ** argv)
   int i,j;
   pid_t pid;
   pid_t * filhos; //array de pids de processos filhos
-  key_t chaveMemComp; //memoria compartilhada
-  int idMemComp; //memoria compartilhada
   int status;
   unsigned int start, end;
 
@@ -50,22 +47,8 @@ int main (int argc, char ** argv)
   //aloca espaço para a matriz resultado
   //a matriz resultado deve ser allocada em espaço de memória compartilhado, pois será acessada
   //por diversos processos.
-  chaveMemComp = ftok("main_processos.c", 'J'); //cria uma chave para a memoria
-  
-  //cria a memoria
-  if ((idMemComp = shmget(chaveMemComp, SHMSZ/*sizeof(int) * linhasR * colunasR*/, IPC_CREAT | 0666 )) < 0) 
-  {
-    fprintf(stderr, "Erro ao criar memoria compartilhada.\n");
-    exit(1);
-  }
-  
-  matrizR = (int *) shmat(idMemComp, NULL, 0);
-  
-  if (matrizR < 0)
-  {
-    fprintf(stderr,"Erro apontando memoria compartilhada.\n");
-    exit(1);
-  }
+
+  matrizR = (int*) mmap(0, linhasR * colunasR * sizeof(int), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANON, -1, 0);
   
   filhos = (pid_t *) malloc(sizeof(pid_t) * (numProcessos - 1));
   if (filhos == NULL)
@@ -75,7 +58,7 @@ int main (int argc, char ** argv)
   }
   
   //começando o processamento paralelo: armazena o tempo para calcular o tempo gasto
-  fprintf(stderr, "Iniciando o processamento paralelo. Aguarde...\n");
+  fprintf(stderr, "Iniciando o processamento. Aguarde...\n");
   start = getTickCount();
   
   for(i = 0; i < 10; i++) //rodando 10 vezes, como especificado
@@ -102,31 +85,10 @@ int main (int argc, char ** argv)
   }
   
   end = getTickCount();
-  fprintf(stderr,"Processamento paralelo encerrado. Tempo total gasto: %u ms.\n\n", (end - start));
+  fprintf(stderr,"Processamento encerrado. Tempo total gasto: %u ms.\n\n", (end - start));
 
-  //começando o processamento sequencial: armazena o tempo para calcular o tempo gasto
-  fprintf(stderr, "Iniciando o processamento sequencial. Aguarde...\n");
-  start = getTickCount();
-
-  for(i = 0; i < 10; i++) //rodando 10 vezes, como especificado
-    MultiplicaSequencial();
-
-  end = getTickCount();
-  fprintf(stderr,"Processamento sequencial encerrado. Tempo total gasto: %u ms.\n\n", (end - start));
-
-  fprintf(stderr,"Matriz1: \n");
-  Imprime(matriz1,linhas1,colunas1);
-  
-  fprintf(stderr,"\nMatriz2: \n");
-  Imprime(matriz2,linhas2,colunas2);
-
-  //imprime a matriz resultado na tela
-  fprintf(stderr,"Matriz Resultado: \n");
-  ImprimeResultado();
-  
   //escreve resultado no arquivo
-  escreveArquivoMatriz("out1.txt",matrizR,linhasR,colunasR);
-  
+  escreveArquivoMatriz("out1.txt",matrizR,linhasR,colunasR);  
 }
 
 //função retorna a hora do dia em millisegundos
@@ -264,22 +226,6 @@ void worker(int indiceProcesso) //recebe um numero de 0 a numProcessos-1 para de
     {
       int* coluna = (int*)malloc(linhas2*sizeof(int));
       GetColuna(matriz2,linhas2,colunas2,j,coluna);
-      matrizR[i*colunasR + j] = ProdutoEscalar(linha,coluna,colunas1);
-    }
-  }
-}
-
-void MultiplicaSequencial()
-{
-  int i, j;
-
-  for(i = 0; i < linhas1; i++)
-  {
-    for(j = 0; j < colunas2; j++)
-    {
-      int* linha = (int*)malloc(colunas1*sizeof(int)); GetLinha(matriz1,linhas1,colunas1,i,linha);
-      int* coluna = (int*)malloc(linhas2*sizeof(int)); GetColuna(matriz2,linhas2,colunas2,j,coluna);
-
       matrizR[i*colunasR + j] = ProdutoEscalar(linha,coluna,colunas1);
     }
   }
