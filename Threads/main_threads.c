@@ -7,7 +7,7 @@
 #include "parserArquivo.h"
 #include "writerArquivo.h"
 
-#define tamanhoAmostra 100
+#define tamanhoAmostra 10
 
 typedef struct {
 	int id;
@@ -193,6 +193,8 @@ void* worker(void *args)
 
   for(i = indiceThread; i < linhas1; i += numThreads)
   {
+     //fprintf(stderr,"Thread %d multiplica linha %d\n",indiceThread,i);
+
      int* linha = (int*)malloc(colunas1*sizeof(int));
      GetLinha(matriz1,linhas1,colunas1,i,linha);
      for(j = 0; j < colunas2; j++)

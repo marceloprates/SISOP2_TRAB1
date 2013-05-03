@@ -11,7 +11,7 @@
 #include "parserArquivo.h"
 #include "writerArquivo.h"
 
-#define tamanhoAmostra 100
+#define tamanhoAmostra 10
 
 //espaço de memoria compartilhado:
 
@@ -71,7 +71,7 @@ int main (int argc, char ** argv)
       if (pid == 0) //processo filho
       {
         worker(j); //chama a funcao que vai fazer o processamento
-        exit(1); //encerra o processamento
+        exit(0); //encerra o processamento
       }
       
       filhos[j-1] = pid;
@@ -80,9 +80,7 @@ int main (int argc, char ** argv)
     //processo pai tem que trabalhar também:
     worker(0);
   
-    //espera todos os filhos terminarem
-    for (j = 0; j < (numProcessos-1); j++);
-      waitpid(filhos[j], &status, 0);
+    waitpid(pid,&status,0);
   }
   
   end = getTickCount();
@@ -214,6 +212,8 @@ void worker(int indiceProcesso) //recebe um numero de 0 a numProcessos-1 para de
 
   for(i = indiceProcesso; i < linhas1; i = i += numProcessos)
   {
+    //fprintf(stderr,"Processo %d multiplica linha %d\n",indiceProcesso,i);
+
     int* linha = (int*)malloc(colunas1*sizeof(int));
     GetLinha(matriz1,linhas1,colunas1,i,linha);
     for(j = 0; j < colunas2; j++)
