@@ -84,8 +84,7 @@ int main (int argc, char ** argv)
   }
   
   end = getTickCount();
-  
-  fprintf(stderr,"Processamento encerrado. Tempo total gasto: %f ms.\n\n", ((double)(end - start))/tamanhoAmostra);
+  fprintf(stderr,"Processamento encerrado\n");
 
   //escreve resultado no arquivo
   escreveArquivoMatriz("out1.txt",matrizR,linhasR,colunasR);  

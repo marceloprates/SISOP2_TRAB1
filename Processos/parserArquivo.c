@@ -22,8 +22,8 @@ retorna 1 sucesso, 0 erro ao abrir arquivo */
 int abreArquivoMatriz(const char * nomeArquivo, int * numLinhas, int * numColunas, int *** pMatriz)
 {
   FILE * pFile = NULL;
-  char strLinha[2048];
-  char strNumero[512]; 
+  char strLinha[1048576];
+  char strNumero[1048576]; 
   int i,j,k,l;
   
   int ** matriz;

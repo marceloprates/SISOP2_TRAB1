@@ -40,13 +40,11 @@ int main(int argc, char** argv)
 	pthread_t* threads;
 	pthread_attr_t pthread_custom_attr;
 	parm* p;
-	unsigned int start, end;
 
 	ProcessaEntrada(argc,argv);
 
 	//começando o processamento paralelo: armazena o tempo para calcular o tempo gasto
 	fprintf(stderr,"Iniciando o processamento. Aguarde...\n");	
-	start = getTickCount();
 	
 	threads = (pthread_t*)malloc(numThreads*sizeof(*threads));
 	pthread_attr_init(&pthread_custom_attr);
@@ -68,10 +66,9 @@ int main(int argc, char** argv)
 		}
 	}
 
-  	free(p);
+  free(p);
 
-	end = getTickCount();
-	fprintf(stderr,"Processamento encerrado. Tempo médio gasto: %f ms.\n\n",((double)(end-start))/tamanhoAmostra);
+	fprintf(stderr,"Processamento encerrado.\n");
 
 	//escreve matriz resultado no arquivo
   escreveArquivoMatriz("out1.txt",matrizR,linhasR,colunasR);
